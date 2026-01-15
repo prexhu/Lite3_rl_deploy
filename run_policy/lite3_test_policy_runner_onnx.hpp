@@ -39,8 +39,7 @@ private:
 
     const int obs_dim_ = 45;
     const int obs_history_dim_ = 270; // 45 * 6
-    const int obs_history_length = 6;
-    const int 
+    const int obs_history_length_ = 6;
     const int act_dim_ = 12;
     const int motor_num = 12;
 
@@ -98,7 +97,7 @@ public:
         
         
         // .onnx model需要单独生成
-        model_path_ = GetAbsPath() + "/../policy/ppo/policy.onnx";        
+        model_path_ = GetAbsPath() + "/../policy/ppo/himloco.onnx";        
         
         // 调试信息
         std::cout << "[ONNX INIT] Loading model: " << model_path_ << std::endl;
@@ -111,7 +110,7 @@ public:
         
 
         input_names_ = {"obs"};
-        output_names_ = {"actions"};
+        output_names_ = {"action"};
 
 
         dof_pos_default_policy.setZero(12);
@@ -148,11 +147,11 @@ public:
 
         // Test the model
         for (int i = 0; i < 2; ++i) {
-            VecXf dummy_input = VecXf::Ones(obs_dim_);
-            std::array<int64_t, 2> input_shape{1, obs_dim_};
+            VecXf dummy_input = VecXf::Ones(obs_history_dim_);
+            std::array<int64_t, 2> input_shape{1, obs_history_dim_};
 
             Ort::Value input_tensor = Ort::Value::CreateTensor<float>(
-                memory_info_, dummy_input.data(), obs_dim_, input_shape.data(), input_shape.size());
+                memory_info_, dummy_input.data(), obs_history_dim_, input_shape.data(), input_shape.size());
 
             auto reaction = session_.Run(Ort::RunOptions{nullptr},
                                                input_names_.data(), &input_tensor, 1,
@@ -197,7 +196,7 @@ public:
     void OnEnter() override {
         run_cnt_ = 0;
         current_obs_.setZero(obs_dim_);
-        for(int i =0; i < obs_history_length; i++)
+        for(int i =0; i < obs_history_length_; i++)
         {
             obs_history_.push_back(current_obs_);
             // ! Set projected_gravity z to -1.0
@@ -207,7 +206,7 @@ public:
     }
 
     RobotAction GetRobotAction(const RobotBasicState& ro) override {
-        Vec3f base_omgea = ro.base_omega * omega_scale_;
+        Vec3f base_omega = ro.base_omega * omega_scale_;
         Vec3f projected_gravity = ro.base_rot_mat.inverse() * gravity_direction;
         // ? Get 0.8 * vel_percentage, 0.8m/s is speed limit
         Vec3f cmd_vel = ro.cmd_vel_normlized.cwiseProduct(max_cmd_vel_);
@@ -229,7 +228,7 @@ public:
                         last_action;
         // TODO: obs stack new -> old 
 
-        obs_history_.erase(0); // erase the old
+        obs_history_.erase(obs_history_.begin()); // erase the old
         obs_history_.push_back(current_obs_);
 
         std::vector<VecXf> temp_obs_history;
