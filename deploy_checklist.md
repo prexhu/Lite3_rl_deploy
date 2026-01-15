@@ -1,0 +1,11 @@
+- [x] Kp Kd
+- [x] actions scale
+- [x] obs scale
+    - [x] lin_vel
+    - [x] ang_vel
+    - [x] dof_pos
+    - [x] dof_vel
+- [x] joint velocity scale
+- [x] obs order
+- [ ] history obs stack
+- [ ] joint mapping 

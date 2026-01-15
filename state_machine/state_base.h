@@ -23,10 +23,10 @@ using namespace interface;
 using namespace functions;
 
 struct ControllerData{
-    std::shared_ptr<RobotInterface> ri_ptr;
-    std::shared_ptr<UserCommandInterface> uc_ptr;
-    std::shared_ptr<ControlParameters> cp_ptr;
-    std::shared_ptr<DataStreaming> ds_ptr;
+    std::shared_ptr<RobotInterface> robot_interface_ptr;
+    std::shared_ptr<UserCommandInterface> user_command_ptr;
+    std::shared_ptr<ControlParameters> control_parameter_ptr;
+    std::shared_ptr<DataStreaming> data_stream_ptr;
 };
 
 
@@ -39,10 +39,10 @@ public:
         robot_type_(robot_type),
         state_name_(state_name),
         data_ptr_(data_ptr){
-            ri_ptr_ = data_ptr_->ri_ptr;
-            uc_ptr_ = data_ptr_->uc_ptr;
-            cp_ptr_ = data_ptr_->cp_ptr;
-            ds_ptr_ = data_ptr_->ds_ptr;
+            robot_interface_ptr_ = data_ptr_->robot_interface_ptr;
+            user_command_ptr_ = data_ptr_->user_command_ptr;
+            control_parameter_ptr_ = data_ptr_->control_parameter_ptr;
+            data_stream_ptr_ = data_ptr_->data_stream_ptr;
             std::memset(&msfb_, 0, sizeof(msfb_));
         }
 
@@ -86,11 +86,11 @@ public:
      */
     RobotType robot_type_;
 
-    std::shared_ptr<ControllerData> data_ptr_;      //control data pointer 
-    std::shared_ptr<RobotInterface> ri_ptr_;        //robot interface pointer to control your robot
-    std::shared_ptr<UserCommandInterface> uc_ptr_;  //control your robot by design user command
-    std::shared_ptr<ControlParameters> cp_ptr_;     //control parameters
-    std::shared_ptr<DataStreaming> ds_ptr_;         //for data record
+    std::shared_ptr<ControllerData> data_ptr_;                   //control data pointer 
+    std::shared_ptr<RobotInterface> robot_interface_ptr_;        //robot interface pointer to control your robot
+    std::shared_ptr<UserCommandInterface> user_command_ptr_;     //control your robot by design user command
+    std::shared_ptr<ControlParameters> control_parameter_ptr_;   //control parameters
+    std::shared_ptr<DataStreaming> data_stream_ptr_;             //for data record
 
-    static MotionStateFeedback msfb_;               //robot current motion state
+    static MotionStateFeedback msfb_;                            //robot current motion state
 };

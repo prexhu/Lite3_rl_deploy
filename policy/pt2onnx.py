@@ -12,11 +12,11 @@ ts_model.eval()
                             
 # === Step 2: Prepare dummy input ===
 # Example observation dimension (for demonstration only)
-obs_dim = 117
+obs_dim = 45
 # Example number of historical observations (for demonstration only)
-obs_his_num = 40
+obs_his_num = 5
 # Example total input dimension calculated from obs_dim and obs_his_num (for demonstration only)
-obs_total_dim = obs_dim + obs_dim * obs_his_num  # 4817
+obs_total_dim = obs_dim + obs_dim * obs_his_num  # 270 for HIMLoco
 print(f" Total ONNX input dimension: {obs_total_dim}")
 
 # Example dummy input tensor with ones (for demonstration only)

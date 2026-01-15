@@ -50,40 +50,40 @@ private:
 
     StateName current_state_name_, next_state_name_;
 
-    std::shared_ptr<UserCommandInterface> uc_ptr_;
-    std::shared_ptr<RobotInterface> ri_ptr_;
-    std::shared_ptr<ControlParameters> cp_ptr_;
+    std::shared_ptr<UserCommandInterface> user_command_ptr_;
+    std::shared_ptr<RobotInterface> robot_interface_ptr_;
+    std::shared_ptr<ControlParameters> control_parameter_ptr_;
 
-    std::shared_ptr<DataStreaming> ds_ptr_;
+    std::shared_ptr<DataStreaming> data_stream_ptr_;
 
     void GetDataStreaming(){
-        if(!ri_ptr_) return;
-        VecXf pos = ri_ptr_->GetJointPosition();
-        VecXf vel = ri_ptr_->GetJointVelocity();
-        VecXf tau = ri_ptr_->GetJointTorque();
-        Vec3f rpy = ri_ptr_->GetImuRpy();
-        Vec3f acc = ri_ptr_->GetImuAcc();
-        Vec3f omg = ri_ptr_->GetImuOmega();
-        MatXf jc = ri_ptr_->GetJointCommand();
+        if(!robot_interface_ptr_) return;
+        VecXf pos = robot_interface_ptr_->GetJointPosition();
+        VecXf vel = robot_interface_ptr_->GetJointVelocity();
+        VecXf tau = robot_interface_ptr_->GetJointTorque();
+        Vec3f rpy = robot_interface_ptr_->GetImuRpy();
+        Vec3f acc = robot_interface_ptr_->GetImuAcc();
+        Vec3f omg = robot_interface_ptr_->GetImuOmega();
+        MatXf jc = robot_interface_ptr_->GetJointCommand();
 
-        ds_ptr_->InsertInterfaceTime(ri_ptr_->GetInterfaceTimeStamp());
-        ds_ptr_->InsertJointData("q", pos);
-        ds_ptr_->InsertJointData("dq", vel);
-        ds_ptr_->InsertJointData("tau", tau);
-        ds_ptr_->InsertJointData("q_cmd", jc.col(1));
-        ds_ptr_->InsertJointData("tau_ff", jc.col(4));
+        data_stream_ptr_->InsertInterfaceTime(robot_interface_ptr_->GetInterfaceTimeStamp());
+        data_stream_ptr_->InsertJointData("q", pos);
+        data_stream_ptr_->InsertJointData("dq", vel);
+        data_stream_ptr_->InsertJointData("tau", tau);
+        data_stream_ptr_->InsertJointData("q_cmd", jc.col(1));
+        data_stream_ptr_->InsertJointData("tau_ff", jc.col(4));
 
-        ds_ptr_->InsertImuData("rpy", rpy);
-        ds_ptr_->InsertImuData("acc", acc);
-        ds_ptr_->InsertImuData("omg", omg);
+        data_stream_ptr_->InsertImuData("rpy", rpy);
+        data_stream_ptr_->InsertImuData("acc", acc);
+        data_stream_ptr_->InsertImuData("omg", omg);
 
-        if(!uc_ptr_) return;
-        auto cmd = uc_ptr_->GetUserCommand();
-        ds_ptr_->InsertCommandData("target_mode", float(cmd.target_mode));
+        if(!user_command_ptr_) return;
+        auto cmd = user_command_ptr_->GetUserCommand();
+        data_stream_ptr_->InsertCommandData("target_mode", float(cmd.target_mode));
 
-        ds_ptr_->InsertStateData("current_state", StateBase::msfb_.current_state);
+        data_stream_ptr_->InsertStateData("current_state", StateBase::msfb_.current_state);
        
-        ds_ptr_->SendData();
+        data_stream_ptr_->SendData();
     }
 
     std::shared_ptr<StateBase> GetNextStatePtr(StateName state_name){
@@ -115,38 +115,38 @@ public:
         std::string urdf_path = "";
         std::string mjcf_path = "";
         #ifdef BUILD_SIMULATION
-            uc_ptr_ = std::make_shared<KeyboardInterface>();
+            user_command_ptr_ = std::make_shared<KeyboardInterface>();
         #else
-            uc_ptr_ = std::make_shared<RetroidGamepadInterface>(12121);
+            user_command_ptr_ = std::make_shared<RetroidGamepadInterface>(12121);
         #endif
-        // uc_ptr_ = std::make_shared<KeyboardInterface>();
-        // uc_ptr_ = std::make_shared<RetroidGamepadInterface>(12121);
+        // user_command_ptr_ = std::make_shared<KeyboardInterface>();
+        // user_command_ptr_ = std::make_shared<RetroidGamepadInterface>(12121);
         if(robot_type == RobotType::Lite3){
             urdf_path = GetAbsPath()+"/../third_party/URDF_model/lite3_urdf/Lite3/urdf/Lite3.urdf";
             mjcf_path = GetAbsPath()+"third_party/URDF_model/Lite3/Lite3_mjcf/mjcf/Lite3.xml";
             #ifdef USE_RAISIM
-                ri_ptr_ = std::make_shared<JueyingRaisimSimulation>(activation_key, urdf_path, "Lite3_sim");
+                robot_interface_ptr_ = std::make_shared<JueyingRaisimSimulation>(activation_key, urdf_path, "Lite3_sim");
 
             #elif defined(USE_MJCPP)
-                ri_ptr_ = std::make_shared<MujocoInterface>("Lite3", mjcf_path);
+                robot_interface_ptr_ = std::make_shared<MujocoInterface>("Lite3", mjcf_path);
                 std::cout << "Using MujocoInterface CPP " << std::endl;
                 std::cout << "mjcf_path: " << mjcf_path << std::endl;
             #elif defined(USE_PYBULLET)
-                ri_ptr_ = std::make_shared<SimulationInterface>("Lite3");
+                robot_interface_ptr_ = std::make_shared<SimulationInterface>("Lite3");
             #else
-                ri_ptr_ = std::make_shared<HardwareInterface>("Lite3");
+                robot_interface_ptr_ = std::make_shared<HardwareInterface>("Lite3");
             #endif
-            cp_ptr_ = std::make_shared<ControlParameters>(robot_type);
+            control_parameter_ptr_ = std::make_shared<ControlParameters>(robot_type);
         }else{
             std::cerr << "error" << std::endl;
         }
 
         std::shared_ptr<ControllerData> data_ptr = std::make_shared<ControllerData>();
-        data_ptr->ri_ptr = ri_ptr_;
-        data_ptr->uc_ptr = uc_ptr_;
-        data_ptr->cp_ptr = cp_ptr_;
-        ds_ptr_ = std::make_shared<DataStreaming>(false, false);
-        data_ptr->ds_ptr = ds_ptr_;
+        data_ptr->robot_interface_ptr = robot_interface_ptr_;
+        data_ptr->user_command_ptr = user_command_ptr_;
+        data_ptr->control_parameter_ptr = control_parameter_ptr_;
+        data_stream_ptr_ = std::make_shared<DataStreaming>(false, false);
+        data_ptr->data_stream_ptr = data_stream_ptr_;
 
         idle_controller_ = std::make_shared<IdleState>(robot_type, "idle_state", data_ptr);
         standup_controller_ = std::make_shared<StandUpState>(robot_type, "standup_state", data_ptr);
@@ -171,9 +171,9 @@ public:
         // std::cout << "Controller will be enabled in 3 seconds!!!" << std::endl;
         // std::this_thread::sleep_for(std::chrono::seconds(3)); //for safety 
 
-        ri_ptr_->Start();
+        robot_interface_ptr_->Start();
         std::cout << "Robot interface started" << std::endl;
-        uc_ptr_->Start();
+        user_command_ptr_->Start();
         
         current_controller_->OnEnter();  
     }
@@ -183,12 +183,13 @@ public:
         int cnt = 0;
         static double time_record = 0;
         while(true){
-            if(ri_ptr_->GetInterfaceTimeStamp()!= time_record){
-                time_record = ri_ptr_->GetInterfaceTimeStamp();
-                current_controller_ -> Run();
-                
-                if(current_controller_->LoseControlJudge()) next_state_name_ = StateName::kJointDamping;
-                else next_state_name_ = current_controller_ -> GetNextStateName();
+            if(robot_interface_ptr_->GetInterfaceTimeStamp()!= time_record){
+                time_record = robot_interface_ptr_->GetInterfaceTimeStamp(); // get current robot data time stamp
+                current_controller_ -> Run(); // calling each StateMachine Run() method
+
+                // lose control ownership, set to Damping mode
+                if(current_controller_->LoseControlJudge()) next_state_name_ = StateName::kJointDamping; 
+                else next_state_name_ = current_controller_ -> GetNextStateName(); // check StateMachine change
                 
                 if(next_state_name_ != current_state_name_){
                     current_controller_ -> OnExit();
@@ -201,11 +202,11 @@ public:
                 ++cnt;
                 this->GetDataStreaming();
             }
-            std::this_thread::sleep_for(std::chrono::microseconds(500));
+            std::this_thread::sleep_for(std::chrono::microseconds(500)); // 500us -> 2000hz
         }
 
-        uc_ptr_->Stop();
-        ri_ptr_->Stop();
+        user_command_ptr_->Stop();
+        robot_interface_ptr_->Stop();
     }
 
 };

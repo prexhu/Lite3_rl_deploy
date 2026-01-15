@@ -56,7 +56,7 @@ tips：right click simulator window and select "always on top"
 # Sim-to-Real
 This process is almost identical to simulation-simulation. You only need to add the step of connecting to Wi-Fi to transfer data, and then modify the compilation instructions. Currently, the default real-machine control mode is Retroid controller mode. If you need to use keyboard mode, you can change state_machine/state_machine.hpp line121 to
 ```bash
-uc_ptr_ = std::make_shared<KeyboardInterface>();
+user_command_ptr_ = std::make_shared<KeyboardInterface>();
 ```
 modify this file jy_exe/conf/network.toml to this content:
 ```bash

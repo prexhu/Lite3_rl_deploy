@@ -21,9 +21,9 @@ private:
     float stand_duration_ = 2.;
 
     void GetRobotJointValue(){
-        current_joint_pos_ = ri_ptr_->GetJointPosition();
-        current_joint_vel_ = ri_ptr_->GetJointVelocity();
-        run_time_ = ri_ptr_->GetInterfaceTimeStamp();
+        current_joint_pos_ = robot_interface_ptr_->GetJointPosition();
+        current_joint_vel_ = robot_interface_ptr_->GetJointVelocity();
+        run_time_ = robot_interface_ptr_->GetInterfaceTimeStamp();
     }
 
     void RecordJointData(){
@@ -51,43 +51,43 @@ private:
     }
 
     float GetHipYPosByHeight(float h){
-        float l1 = cp_ptr_->thigh_len_;
-        float l2 = cp_ptr_->shank_len_;
-        float default_pos = (cp_ptr_->fl_joint_lower_(1)+cp_ptr_->fl_joint_upper_(1)) / 2.;
+        float l1 = control_parameter_ptr_->thigh_len_;
+        float l2 = control_parameter_ptr_->shank_len_;
+        float default_pos = (control_parameter_ptr_->fl_joint_lower_(1)+control_parameter_ptr_->fl_joint_upper_(1)) / 2.;
         if(fabs(h) >= l1 + l2) {
             std::cerr << "error height input" << std::endl;
             return 0;
         }
         float theta = -acos((l1*l1+h*h-l2*l2)/(2.*h*l1));
-        theta = LimitNumber(theta, cp_ptr_->fl_joint_lower_(1), cp_ptr_->fl_joint_upper_(1));
+        theta = LimitNumber(theta, control_parameter_ptr_->fl_joint_lower_(1), control_parameter_ptr_->fl_joint_upper_(1));
         return theta;
     }
 
     float GetKneePosByHeight(float h){
-        float l1 = cp_ptr_->thigh_len_;
-        float l2 = cp_ptr_->shank_len_;
-        float default_pos = (cp_ptr_->fl_joint_lower_(2)+cp_ptr_->fl_joint_upper_(2)) / 2.;
+        float l1 = control_parameter_ptr_->thigh_len_;
+        float l2 = control_parameter_ptr_->shank_len_;
+        float default_pos = (control_parameter_ptr_->fl_joint_lower_(2)+control_parameter_ptr_->fl_joint_upper_(2)) / 2.;
         if(fabs(h) >= l1 + l2) {
             std::cerr << "error height input" << std::endl;
             return 0;
         }
         float theta = M_PI-acos((l1*l1+l2*l2-h*h)/(2*l1*l2));
-        theta = LimitNumber(theta, cp_ptr_->fl_joint_lower_(2), cp_ptr_->fl_joint_upper_(2));
+        theta = LimitNumber(theta, control_parameter_ptr_->fl_joint_lower_(2), control_parameter_ptr_->fl_joint_upper_(2));
         return theta;
     }
 
 public:
     StandUpState(const RobotType& robot_type, const std::string& state_name, 
         std::shared_ptr<ControllerData> data_ptr):StateBase(robot_type, state_name, data_ptr){
-            goal_joint_pos_ = Vec3f(0., GetHipYPosByHeight(cp_ptr_->pre_height_), GetKneePosByHeight(cp_ptr_->pre_height_)).replicate(4, 1);
+            goal_joint_pos_ = Vec3f(0., GetHipYPosByHeight(control_parameter_ptr_->pre_height_), GetKneePosByHeight(control_parameter_ptr_->pre_height_)).replicate(4, 1);
             kp_ = VecXf(12);
             kd_ = VecXf(12);     
-            kp_ = cp_ptr_->swing_leg_kp_.replicate(4, 1);
-            kd_ = cp_ptr_->swing_leg_kd_.replicate(4, 1);
+            kp_ = control_parameter_ptr_->swing_leg_kp_.replicate(4, 1);
+            kd_ = control_parameter_ptr_->swing_leg_kd_.replicate(4, 1);
             joint_cmd_ = MatXf::Zero(12, 5);
             joint_cmd_.col(0) = kp_;
             joint_cmd_.col(2) = kd_;
-            stand_duration_ = cp_ptr_->stand_duration_;
+            stand_duration_ = control_parameter_ptr_->stand_duration_;
         }
     ~StandUpState(){}
 
@@ -96,7 +96,7 @@ public:
         GetRobotJointValue();
         RecordJointData();
         StateBase::msfb_.UpdateCurrentState(RobotMotionState::StandingUp);
-        uc_ptr_->SetMotionStateFeedback(StateBase::msfb_);
+        user_command_ptr_->SetMotionStateFeedback(StateBase::msfb_);
     };
     virtual void OnExit() {
     }
@@ -114,9 +114,9 @@ public:
         }else{
             float new_time = run_time_ - time_stamp_record_ - stand_duration_;
             float dt = 0.001;
-            float plan_height = GetCubicSplinePos(cp_ptr_->pre_height_, 0, cp_ptr_->stand_height_, 0, 
+            float plan_height = GetCubicSplinePos(control_parameter_ptr_->pre_height_, 0, control_parameter_ptr_->stand_height_, 0, 
                                                 new_time, stand_duration_);
-            float plan_height_next = GetCubicSplinePos(cp_ptr_->pre_height_, 0, cp_ptr_->stand_height_, 0, 
+            float plan_height_next = GetCubicSplinePos(control_parameter_ptr_->pre_height_, 0, control_parameter_ptr_->stand_height_, 0, 
                                                 new_time+dt, stand_duration_);
             float hipy_pos = GetHipYPosByHeight(plan_height);
             float hipy_vel = (GetHipYPosByHeight(plan_height_next) - hipy_pos) / dt;
@@ -130,17 +130,17 @@ public:
 
         joint_cmd_.col(1) = planning_joint_pos;
         joint_cmd_.col(3) = planning_joint_vel;
-        ri_ptr_->SetJointCommand(joint_cmd_); // (current torque, not last torque, video content slip of the tongue)
+        robot_interface_ptr_->SetJointCommand(joint_cmd_); // (current torque, not last torque, video content slip of the tongue)
     }
     virtual bool LoseControlJudge() {
-        if(uc_ptr_->GetUserCommand().target_mode == int(RobotMotionState::JointDamping)) return true;
+        if(user_command_ptr_->GetUserCommand().target_mode == int(RobotMotionState::JointDamping)) return true;
         return false;
     }
     virtual StateName GetNextStateName() {
         if(run_time_ - time_stamp_record_ <= 2.*stand_duration_){
             return StateName::kStandUp;
         }else{
-            if(uc_ptr_->GetUserCommand().target_mode == int(RobotMotionState::RLControlMode)){
+            if(user_command_ptr_->GetUserCommand().target_mode == int(RobotMotionState::RLControlMode)){
                 return StateName::kRLControl;
                 std::cout << "stand up success" << std::endl;
             }

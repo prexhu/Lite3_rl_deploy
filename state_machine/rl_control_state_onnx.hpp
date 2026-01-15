@@ -37,29 +37,17 @@ private:
     float policy_cost_time_ = 1;
 
     void UpdateRobotObservation(){
-        rbs_.base_rpy     = ri_ptr_->GetImuRpy();
+        rbs_.base_rpy     = robot_interface_ptr_->GetImuRpy();
         rbs_.base_rot_mat = RpyToRm(rbs_.base_rpy);
         rbs_.projected_gravity = RmToProjectedGravity(rbs_.base_rot_mat);
-        rbs_.base_omega   = ri_ptr_->GetImuOmega();
-        rbs_.base_acc     = ri_ptr_->GetImuAcc();
-        rbs_.joint_pos    = ri_ptr_->GetJointPosition();
-        rbs_.joint_vel    = ri_ptr_->GetJointVelocity();
-        rbs_.joint_tau    = ri_ptr_->GetJointTorque();
-        // static Vec3f cmd_vel;
-        // Vec3f cmd_vel_input = Vec3f(uc_ptr_->GetUserCommand().forward_vel_scale, 
-        //                             uc_ptr_->GetUserCommand().side_vel_scale, 
-        //                             uc_ptr_->GetUserCommand().turnning_vel_scale);
-
-        // Eigen::Vector3f vel_delta = cmd_vel_input - cmd_vel;
-        // const Eigen::Vector3f vel_delta_const(0.0015, 0.001, 0.0012);
-        // for(int i=0;i<3;++i){
-        //     if(fabs(vel_delta(i)) > vel_delta_const(i)) vel_delta(i) = Sign(vel_delta(i))*vel_delta_const(i);
-        // }
-        // cmd_vel+=vel_delta;           
-        // rbs_.cmd_vel_normlized = cmd_vel;
-        rbs_.cmd_vel_normlized = Vec3f(uc_ptr_->GetUserCommand().forward_vel_scale, 
-                                    uc_ptr_->GetUserCommand().side_vel_scale, 
-                                    uc_ptr_->GetUserCommand().turnning_vel_scale);
+        rbs_.base_omega   = robot_interface_ptr_->GetImuOmega();
+        rbs_.base_acc     = robot_interface_ptr_->GetImuAcc();
+        rbs_.joint_pos    = robot_interface_ptr_->GetJointPosition();
+        rbs_.joint_vel    = robot_interface_ptr_->GetJointVelocity();
+        rbs_.joint_tau    = robot_interface_ptr_->GetJointTorque();
+        rbs_.cmd_vel_normlized = Vec3f(user_command_ptr_->GetUserCommand().forward_vel_scale, // X
+                                    user_command_ptr_->GetUserCommand().side_vel_scale,       // Y
+                                    user_command_ptr_->GetUserCommand().turnning_vel_scale);  // turn left or right
         
     }
 
@@ -72,14 +60,15 @@ private:
                 clock_gettime(CLOCK_MONOTONIC,&start_timestamp);
                 auto ra = policy_ptr_->GetRobotAction(rbs_);
                 MatXf res = ra.ConvertToMat();
-                ri_ptr_->SetJointCommand(res); // (current torque, not last torque, video content slip of the tongue)
+                robot_interface_ptr_->SetJointCommand(res); // (current torque, not last torque, video content slip of the tongue)
                 run_cnt_record = state_run_cnt_;
                 clock_gettime(CLOCK_MONOTONIC,&end_timestamp);
                 policy_cost_time_ = (end_timestamp.tv_sec-start_timestamp.tv_sec)*1e3 
                                     +(end_timestamp.tv_nsec-start_timestamp.tv_nsec)/1e6;
                 // std::cout << "cost_time:  " << policy_cost_time_ << " ms\n";
             }
-            std::this_thread::sleep_for(std::chrono::microseconds(100));
+            // TODO: move to config file
+            std::this_thread::sleep_for(std::chrono::microseconds(20)); // 20ms for HIMLoco
         }
     }
 
@@ -103,7 +92,7 @@ public:
         run_policy_thread_ = std::thread(std::bind(&RLControlStateONNX::PolicyRunner, this));
         policy_ptr_->OnEnter();
         StateBase::msfb_.UpdateCurrentState(RobotMotionState::RLControlMode);
-        uc_ptr_->SetMotionStateFeedback(StateBase::msfb_);
+        user_command_ptr_->SetMotionStateFeedback(StateBase::msfb_);
     };
 
     virtual void OnExit() { 
@@ -114,17 +103,17 @@ public:
 
     virtual void Run() {
         UpdateRobotObservation();
-        ds_ptr_->InsertScopeData(0, policy_cost_time_);
+        data_stream_ptr_->InsertScopeData(0, policy_cost_time_);
         state_run_cnt_++;
     }
 
     virtual bool LoseControlJudge() {
-        if(uc_ptr_->GetUserCommand().target_mode == int(RobotMotionState::JointDamping)) return true;
+        if(user_command_ptr_->GetUserCommand().target_mode == int(RobotMotionState::JointDamping)) return true;
         return PostureUnsafeCheck();
     }
 
     bool PostureUnsafeCheck(){
-        Vec3f rpy = ri_ptr_->GetImuRpy();
+        Vec3f rpy = robot_interface_ptr_->GetImuRpy();
         if(fabs(rpy(0)) > 30./180*M_PI || fabs(rpy(1)) > 45./180*M_PI){
             std::cout << "posture value: " << 180./M_PI*rpy.transpose() << std::endl;
             return true;

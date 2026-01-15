@@ -20,22 +20,22 @@ private:
 public:
     JointDampingState(const RobotType& robot_type, const std::string& state_name, 
         std::shared_ptr<ControllerData> data_ptr):StateBase(robot_type, state_name, data_ptr){
-            VecXf kd_ = cp_ptr_->swing_leg_kd_.replicate(4, 1);
+            VecXf kd_ = control_parameter_ptr_->swing_leg_kd_.replicate(4, 1);
             joint_cmd_ = MatXf::Zero(12, 5);
             joint_cmd_.col(2) = kd_;
         }
     ~JointDampingState(){}
 
     virtual void OnEnter() {
-        time_record_ = ri_ptr_->GetInterfaceTimeStamp();
-        run_time_ = ri_ptr_->GetInterfaceTimeStamp();
+        time_record_ = robot_interface_ptr_->GetInterfaceTimeStamp();
+        run_time_ = robot_interface_ptr_->GetInterfaceTimeStamp();
     };
     virtual void OnExit() {
 
     }
     virtual void Run() {
-        run_time_ = ri_ptr_->GetInterfaceTimeStamp();
-        ri_ptr_->SetJointCommand(joint_cmd_); // (current torque, not last torque, video content slip of the tongue)
+        run_time_ = robot_interface_ptr_->GetInterfaceTimeStamp();
+        robot_interface_ptr_->SetJointCommand(joint_cmd_); // (current torque, not last torque, video content slip of the tongue)
     }
     virtual bool LoseControlJudge() {
         return false;

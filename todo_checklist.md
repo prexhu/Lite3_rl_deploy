@@ -1,0 +1,3 @@
+- [ ] Use double edge queue (support push_back and pop, maintain the stack length)
+- [ ] Add RL obs_stack_buffer
+    - [ ] init obs_stack_buffer with default height

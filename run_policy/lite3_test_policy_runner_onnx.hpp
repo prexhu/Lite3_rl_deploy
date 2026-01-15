@@ -38,10 +38,15 @@ private:
     std::vector<const char*> output_names_;
 
     const int obs_dim_ = 45;
+    const int obs_history_dim_ = 270; // 45 * 6
+    const int obs_history_length = 6;
+    const int 
     const int act_dim_ = 12;
     const int motor_num = 12;
 
     VecXf current_obs_;
+    VecXf obs_history_model_; // ! bad variable name
+    std::vector<VecXf> obs_history_;
     VecXf joint_pos_rl = VecXf(act_dim_);// in rl squenece
     VecXf joint_vel_rl = VecXf(act_dim_);
     
@@ -54,27 +59,30 @@ private:
 
     
 
+    // joint mapping
     std::vector<int> robot2policy_idx, policy2robot_idx;
 
+    // ? should be base angular velocity scale
     float omega_scale_ = 0.25;
     float dof_vel_scale_ = 0.05;
-
+    Vec3f user_cmd_vel_scale_ =  Vec3f(2,2,0.25) ;
+    // Z style
     std::vector<std::string> robot_order = {
         "FL_HipX_joint", "FL_HipY_joint", "FL_Knee_joint",
         "FR_HipX_joint", "FR_HipY_joint", "FR_Knee_joint",
         "HL_HipX_joint", "HL_HipY_joint", "HL_Knee_joint",
         "HR_HipX_joint", "HR_HipY_joint", "HR_Knee_joint"};
-
+    // Z style
     std::vector<std::string> policy_order = {
         "FL_HipX_joint", "FL_HipY_joint", "FL_Knee_joint",
         "FR_HipX_joint", "FR_HipY_joint", "FR_Knee_joint",
         "HL_HipX_joint", "HL_HipY_joint", "HL_Knee_joint",
         "HR_HipX_joint", "HR_HipY_joint", "HR_Knee_joint"};
 
-    std::vector<float> action_scale_robot = {0.125, 0.25, 0.25,
-                                             0.125, 0.25, 0.25,
-                                             0.125, 0.25, 0.25,
-                                             0.125, 0.25, 0.25};
+    std::vector<float> action_scale_robot = {0.25, 0.25, 0.25,
+                                             0.25, 0.25, 0.25,
+                                             0.25, 0.25, 0.25,
+                                             0.25, 0.25, 0.25};
 
     RobotAction ra;
     
@@ -120,6 +128,8 @@ public:
 
         kp_ = 30.*VecXf::Ones(12);
         kd_ = 1. *VecXf::Ones(12);
+        // velocity scale
+        // HIMLoco: 2, 2, 0.25
         max_cmd_vel_ << 0.8, 0.8, 0.8;
 
         tmp_action = VecXf(act_dim_);
@@ -150,7 +160,7 @@ public:
             std::cout << policy_name_ << " ONNX policy network test success" << std::endl;
         }
 
-        decimation_ = 12;
+        decimation_ = 4; // 4 for HIMLoco
     }
 
     ~Lite3TestPolicyRunnerONNX() {}
@@ -187,28 +197,56 @@ public:
     void OnEnter() override {
         run_cnt_ = 0;
         current_obs_.setZero(obs_dim_);
+        for(int i =0; i < obs_history_length; i++)
+        {
+            obs_history_.push_back(current_obs_);
+            // ! Set projected_gravity z to -1.0
+            obs_history_[i][8]= -1.0f; 
+        }
         std::cout << "[ONNX ENTER] PolicyRunner entered: " << policy_name_ << std::endl;
     }
 
     RobotAction GetRobotAction(const RobotBasicState& ro) override {
         Vec3f base_omgea = ro.base_omega * omega_scale_;
         Vec3f projected_gravity = ro.base_rot_mat.inverse() * gravity_direction;
+        // ? Get 0.8 * vel_percentage, 0.8m/s is speed limit
         Vec3f cmd_vel = ro.cmd_vel_normlized.cwiseProduct(max_cmd_vel_);
+        Vec3f cmd_vel_scaled = cmd_vel.cwiseProduct(user_cmd_vel_scale_);
 
+        // TODO: check the joint mapping in IsaacLab
         for (int i = 0; i < act_dim_; ++i){
-            joint_pos_rl(i) = ro.joint_pos(robot2policy_idx[i]);
+            joint_pos_rl(i) = ro.joint_pos(robot2policy_idx[i]); // scale equals to 1.0
             joint_vel_rl(i) = ro.joint_vel(robot2policy_idx[i]) * dof_vel_scale_;
         }
         joint_pos_rl -= dof_pos_default_policy;
 
         current_obs_.setZero(obs_dim_);
-        current_obs_ << base_omgea,
+        current_obs_ << cmd_vel_scaled,
+                        base_omega,
                         projected_gravity,
-                        cmd_vel,
                         joint_pos_rl,
-                        joint_vel_rl,
+                        joint_vel_rl * dof_vel_scale_,
                         last_action;
+        // TODO: obs stack new -> old 
 
+        obs_history_.erase(0); // erase the old
+        obs_history_.push_back(current_obs_);
+
+        std::vector<VecXf> temp_obs_history;
+        for(auto it = obs_history_.rbegin();it != obs_history_.rend();it++)
+        {
+            // new -> old
+            temp_obs_history.push_back(*it);
+        }
+
+        // ! bad style
+        for (int i =0;i<obs_history_dim_;i++)
+        {
+            obs_history_model_ << temp_obs_history[i];
+        }
+
+
+         
         // std::cout << "observations" << std::endl;
         // for (int i = 0; i < current_obs_.size(); ++i) {
         //     std::cout << current_obs_(i) << " ";
@@ -220,15 +258,16 @@ public:
         //     std::cout << std::endl; // Ensure a newline at the end if not already printed
         // }
 
-        std::array<int64_t, 2> input_shape{1, obs_dim_};
+        std::array<int64_t, 2> input_shape{1, obs_history_dim_}; // change to 270 for himloco
 
         Ort::Value input_tensor = Ort::Value::CreateTensor<float>(
             memory_info_, 
-            current_obs_.data(), current_obs_.size(), 
+            //current_obs_.data(), current_obs_.size(), 
+            obs_history_model_.data(), obs_history_model_.size(), 
             input_shape.data(), input_shape.size());
         
         std::vector<Ort::Value> inputs;
-        inputs.emplace_back(std::move(input_tensor));  // 避免拷贝构造
+        inputs.emplace_back(std::move(input_tensor));  // forbidden copy construct
 
         auto output_tensors = session_.Run(Ort::RunOptions{nullptr},
                                            input_names_.data(), 
@@ -247,7 +286,7 @@ public:
         tmp_action += dof_pos_default_robot;
 
         // std::cout << tmp_action << std::endl;
-        
+        // Output desired joint pos
         ra.goal_joint_pos = tmp_action;
         ra.goal_joint_vel = VecXf::Zero(act_dim_);
         ra.tau_ff = VecXf::Zero(act_dim_);
