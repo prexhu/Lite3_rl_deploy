@@ -109,6 +109,7 @@ public:
 
     virtual bool LoseControlJudge() {
         if(user_command_ptr_->GetUserCommand().target_mode == int(RobotMotionState::JointDamping)) return true;
+        return false;
         return PostureUnsafeCheck();
     }
 

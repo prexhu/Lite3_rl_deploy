@@ -49,7 +49,7 @@ private:
     VecXf joint_pos_rl = VecXf(act_dim_);// in rl squenece
     VecXf joint_vel_rl = VecXf(act_dim_);
     
-    VecXf last_action, tmp_action, action;
+    VecXf last_action, tmp_action, action, tmp_obs_history_;
     VecXf projected_gravity;
 
     VecXf dof_pos_default_robot, dof_pos_default_policy;
@@ -97,7 +97,7 @@ public:
         
         
         // .onnx model需要单独生成
-        model_path_ = GetAbsPath() + "/../policy/ppo/himloco.onnx";        
+        model_path_ = GetAbsPath() + "/../policy/ppo/rl_sar_himloco.onnx";        
         
         // 调试信息
         std::cout << "[ONNX INIT] Loading model: " << model_path_ << std::endl;
@@ -127,11 +127,24 @@ public:
 
         kp_ = 30.*VecXf::Ones(12);
         kd_ = 1. *VecXf::Ones(12);
+		obs_history_.resize(obs_history_length_);
+		for(int i =0;i<obs_history_.size();i++)
+		{
+			obs_history_[i].setZero(obs_dim_);
+		}
         // velocity scale
         // HIMLoco: 2, 2, 0.25
         max_cmd_vel_ << 0.8, 0.8, 0.8;
 
         tmp_action = VecXf(act_dim_);
+		last_action = VecXf(act_dim_);
+		tmp_obs_history_ = VecXf(obs_history_dim_);
+		tmp_obs_history_.setZero(obs_history_dim_);
+		for(int i = 0;i<obs_history_length_;i++)
+		{
+			tmp_obs_history_[i*obs_history_length_+8] = -1.0; // process projected gravity z
+		}
+		
         ra.goal_joint_pos = VecXf::Zero(act_dim_);
         ra.goal_joint_vel = VecXf::Zero(act_dim_);
         ra.tau_ff = VecXf::Zero(act_dim_);
@@ -217,17 +230,19 @@ public:
             joint_pos_rl(i) = ro.joint_pos(robot2policy_idx[i]); // scale equals to 1.0
             joint_vel_rl(i) = ro.joint_vel(robot2policy_idx[i]) * dof_vel_scale_;
         }
-        joint_pos_rl -= dof_pos_default_policy;
 
         current_obs_.setZero(obs_dim_);
         current_obs_ << cmd_vel_scaled,
                         base_omega,
                         projected_gravity,
                         joint_pos_rl,
-                        joint_vel_rl * dof_vel_scale_,
+                        joint_vel_rl,
                         last_action;
-        // TODO: obs stack new -> old 
+		std::cout<<"###### current obs #######" <<std::endl;
+		std::cout<< current_obs_<<std::endl;
+		std::cout<<"##########################" <<std::endl;
 
+        // TODO: obs stack new -> old 
         obs_history_.erase(obs_history_.begin()); // erase the old
         obs_history_.push_back(current_obs_);
 
@@ -239,30 +254,25 @@ public:
         }
 
         // ! bad style
-        for (int i =0;i<obs_history_dim_;i++)
+        for (int i =0;i < obs_history_length_;i++)
         {
-            obs_history_model_ << temp_obs_history[i];
+			for(int j = 0 ; j < obs_dim_; j++)
+			{
+        		tmp_obs_history_( i * obs_dim_ + j) =temp_obs_history[i](j);
+			}
         }
-
-
-         
-        // std::cout << "observations" << std::endl;
-        // for (int i = 0; i < current_obs_.size(); ++i) {
-        //     std::cout << current_obs_(i) << " ";
-        //     if ((i + 1) % 8 == 0) {
-        //         std::cout << std::endl; // New line after every 8 elements
-        //     }
-        // }
-        // if (current_obs_.size() % 8 != 0) {
-        //     std::cout << std::endl; // Ensure a newline at the end if not already printed
-        // }
-
+		std::cout<<"******* ewest obs in stack *******" <<std::endl;
+		for(int i =0 ;i< obs_dim_;i++)
+		{
+			std::cout<<tmp_obs_history_[i]<<std::endl;
+		}
+		std::cout<<"***********************************" <<std::endl;
+       
         std::array<int64_t, 2> input_shape{1, obs_history_dim_}; // change to 270 for himloco
 
         Ort::Value input_tensor = Ort::Value::CreateTensor<float>(
             memory_info_, 
-            //current_obs_.data(), current_obs_.size(), 
-            obs_history_model_.data(), obs_history_model_.size(), 
+            tmp_obs_history_.data(), tmp_obs_history_.size(), 
             input_shape.data(), input_shape.size());
         
         std::vector<Ort::Value> inputs;
@@ -282,9 +292,24 @@ public:
             tmp_action(i) = action(policy2robot_idx[i]);
             tmp_action(i) *= action_scale_robot[i];
         }
+		
+		tmp_action(0) = -tmp_action(1);
+		tmp_action(1) = -tmp_action(1);
+		tmp_action(2) = -tmp_action(2);
+		tmp_action(3) = -tmp_action(3);
+		tmp_action(4) = -tmp_action(4);
+		tmp_action(5) = -tmp_action(5);
+		tmp_action(6) = -tmp_action(6);
+		tmp_action(7) = -tmp_action(7);
+		tmp_action(8) = -tmp_action(8);
+		tmp_action(9) = -tmp_action(9);
+		tmp_action(10) = -tmp_action(10);
+		tmp_action(11) = -tmp_action(11);
         tmp_action += dof_pos_default_robot;
 
-        // std::cout << tmp_action << std::endl;
+		std::cout<< "-------action---------"<<std::endl;
+		std::cout<<tmp_action<<std::endl;
+		std::cout<< "----------------------"<<std::endl;
         // Output desired joint pos
         ra.goal_joint_pos = tmp_action;
         ra.goal_joint_vel = VecXf::Zero(act_dim_);
