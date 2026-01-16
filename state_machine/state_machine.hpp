@@ -182,8 +182,10 @@ public:
     void Run(){
         int cnt = 0;
         static double time_record = 0;
+        int state_machine_run_period =5; // 5ms for 200hz
         while(true){
             if(robot_interface_ptr_->GetInterfaceTimeStamp()!= time_record){
+                auto state_machine_start_time = std::chrono::steady_clock::now();
                 time_record = robot_interface_ptr_->GetInterfaceTimeStamp(); // get current robot data time stamp
                 current_controller_ -> Run(); // calling each StateMachine Run() method
 
@@ -201,8 +203,8 @@ public:
                 }
                 ++cnt;
                 this->GetDataStreaming();
+            std::this_thread::sleep_until(state_machine_start_time+std::chrono::milliseconds(state_machine_run_period)); // 5ms -> 200hz
             }
-            std::this_thread::sleep_for(std::chrono::milliseconds(5)); // 5ms -> 200hz
         }
 
         user_command_ptr_->Stop();

@@ -44,9 +44,11 @@ private:
 
     void PolicyRunner(){
         int run_cnt_record = -1;
+        int inference_period=20; // 20ms for himloco
         while (start_flag_){
             
             if(state_run_cnt_%policy_ptr_->decimation_ == 0 && state_run_cnt_ != run_cnt_record){
+                auto inference_start_time = std::chrono::steady_clock::now();
                 timespec start_timestamp, end_timestamp;
                 clock_gettime(CLOCK_MONOTONIC,&start_timestamp);
                 auto ra = policy_ptr_->GetRobotAction(rbs_);
@@ -57,8 +59,8 @@ private:
                 policy_cost_time_ = (end_timestamp.tv_sec-start_timestamp.tv_sec)*1e3 
                                     +(end_timestamp.tv_nsec-start_timestamp.tv_nsec)/1e6;
                 // std::cout << "cost_time:  " << policy_cost_time_ << " ms\n";
+                std::this_thread::sleep_until(inference_start_time+std::chrono::milliseconds(inference_period));
             }
-            std::this_thread::sleep_for(std::chrono::microseconds(100));
         }
     }
 
