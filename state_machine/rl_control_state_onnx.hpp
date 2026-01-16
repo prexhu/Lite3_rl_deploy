@@ -5,8 +5,7 @@
  * @version 1.0
  * @date 2025-08-10
  * 
- * @copyright Copyright (c) 2025  DeepRobotics
- * 
+ * @copyright Copyright (c) 2025  DeepRobotics * 
  */
 
 
@@ -54,9 +53,13 @@ private:
     void PolicyRunner(){
         int run_cnt_record = -1;
         int inference_period=20; // 20ms for himloco
+		auto inference_start_time = std::chrono::steady_clock::now();
+		auto inference_end_time = inference_start_time;
+		bool enter_condition = false;
         while (start_flag_){
-            if(state_run_cnt_%policy_ptr_->decimation_ == 0 && state_run_cnt_ != run_cnt_record){
-                auto inference_start_time = std::chrono::steady_clock::now();
+            if(state_run_cnt_ != run_cnt_record){
+				enter_condition = true;
+                inference_start_time = std::chrono::steady_clock::now();
                 timespec start_timestamp, end_timestamp;
                 clock_gettime(CLOCK_MONOTONIC,&start_timestamp);
                 auto ra = policy_ptr_->GetRobotAction(rbs_);
@@ -66,11 +69,21 @@ private:
                 clock_gettime(CLOCK_MONOTONIC,&end_timestamp);
                 policy_cost_time_ = (end_timestamp.tv_sec-start_timestamp.tv_sec)*1e3 
                                     +(end_timestamp.tv_nsec-start_timestamp.tv_nsec)/1e6;
-                // std::cout << "cost_time:  " << policy_cost_time_ << " ms\n";
-                std::this_thread::sleep_until(inference_start_time+std::chrono::milliseconds(inference_period));
+                std::cout << "cost_time:  " << policy_cost_time_ << " ms\n";
+				inference_end_time = std::chrono::steady_clock::now();
             }
-            // TODO: move to config file
+			 if(enter_condition)
+			{
+				enter_condition = false;
+				auto time_elapse = std::chrono::duration_cast<std::chrono::milliseconds>(inference_end_time - inference_start_time).count();
+				std::this_thread::sleep_for(std::chrono::milliseconds(inference_period) - std::chrono::milliseconds(time_elapse)); // 20ms -> 50hz
+			}
+			else{
+            std::this_thread::sleep_for(std::chrono::milliseconds(inference_period));
+			}
+			std::cout<<"Inference time: "<< std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now()-inference_start_time).count() << " ms" << std::endl;
         }
+			
     }
 
 public:

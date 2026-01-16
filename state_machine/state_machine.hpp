@@ -183,9 +183,13 @@ public:
         int cnt = 0;
         static double time_record = 0;
         int state_machine_run_period =5; // 5ms for 200hz
+        auto state_machine_start_time = std::chrono::steady_clock::now();
+        auto state_machine_end_time = state_machine_start_time;
+		bool enter_condition = false;
         while(true){
             if(robot_interface_ptr_->GetInterfaceTimeStamp()!= time_record){
-                auto state_machine_start_time = std::chrono::steady_clock::now();
+				enter_condition = true;
+                state_machine_start_time = std::chrono::steady_clock::now();
                 time_record = robot_interface_ptr_->GetInterfaceTimeStamp(); // get current robot data time stamp
                 current_controller_ -> Run(); // calling each StateMachine Run() method
 
@@ -202,9 +206,20 @@ public:
                     current_state_name_ = next_state_name_; 
                 }
                 ++cnt;
-                this->GetDataStreaming();
-            std::this_thread::sleep_until(state_machine_start_time+std::chrono::milliseconds(state_machine_run_period)); // 5ms -> 200hz
+                this->GetDataStreaming(); // get obs
+                state_machine_end_time = std::chrono::steady_clock::now();
             }
+			if(enter_condition)
+			{
+				enter_condition = false; 
+				auto time_elapse=std::chrono::duration_cast<std::chrono::milliseconds>(state_machine_end_time-state_machine_start_time).count();
+            	std::this_thread::sleep_for(std::chrono::milliseconds(state_machine_run_period) - std::chrono::milliseconds(time_elapse)); // 5ms -> 200hz
+			}
+			else
+			{
+				std::this_thread::sleep_for(std::chrono::milliseconds(state_machine_run_period));
+			}
+			std::cout<<"State machine run time: "<< std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now()-state_machine_start_time).count() << " ms" << std::endl;
         }
 
         user_command_ptr_->Stop();
