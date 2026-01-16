@@ -202,7 +202,7 @@ public:
                 ++cnt;
                 this->GetDataStreaming();
             }
-            std::this_thread::sleep_for(std::chrono::microseconds(500)); // 500us -> 2000hz
+            std::this_thread::sleep_for(std::chrono::milliseconds(5)); // 5ms -> 200hz
         }
 
         user_command_ptr_->Stop();

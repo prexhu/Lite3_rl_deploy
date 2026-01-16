@@ -68,7 +68,7 @@ private:
                 // std::cout << "cost_time:  " << policy_cost_time_ << " ms\n";
             }
             // TODO: move to config file
-            std::this_thread::sleep_for(std::chrono::microseconds(20)); // 20ms for HIMLoco
+            std::this_thread::sleep_for(std::chrono::milliseconds(20)); // 20ms for HIMLoco
         }
     }
 
