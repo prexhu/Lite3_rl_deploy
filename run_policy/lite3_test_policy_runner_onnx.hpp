@@ -138,6 +138,7 @@ public:
 
 		tmp_action = VecXf(act_dim_);
 		last_action = VecXf(act_dim_);
+		last_action.setZero(act_dim_);
 		tmp_obs_history_ = VecXf(obs_history_dim_);
 		tmp_obs_history_.setZero(obs_history_dim_);
 		for(int i = 0;i<obs_history_length_;i++)
@@ -209,11 +210,10 @@ public:
 	void OnEnter() override {
 		run_cnt_ = 0;
 		current_obs_.setZero(obs_dim_);
+		current_obs_(8)=0;
 		for(int i =0; i < obs_history_length_; i++)
 		{
 			obs_history_.push_back(current_obs_);
-			// ! Set projected_gravity z to -1.0
-			obs_history_[i][8]= -1.0f; 
 		}
 		std::cout << "[ONNX ENTER] PolicyRunner entered: " << policy_name_ << std::endl;
 	}
@@ -227,7 +227,7 @@ public:
 
 		// TODO: check the joint mapping in IsaacLab
 		for (int i = 0; i < act_dim_; ++i){
-			joint_pos_rl(i) = ro.joint_pos(robot2policy_idx[i]); // scale equals to 1.0
+			joint_pos_rl(i) = ro.joint_pos(robot2policy_idx[i])-dof_pos_default_robot(robot2policy_idx[i]); // scale equals to 1.0
 			joint_vel_rl(i) = ro.joint_vel(robot2policy_idx[i]) * dof_vel_scale_;
 		}
 
@@ -293,18 +293,6 @@ public:
 			tmp_action(i) *= action_scale_robot[i];
 		}
 		
-		//tmp_action(0) = -tmp_action(1);
-		//tmp_action(1) = -tmp_action(1);
-		//tmp_action(2) = -tmp_action(2);
-		//tmp_action(3) = -tmp_action(3);
-		//tmp_action(4) = -tmp_action(4);
-		//tmp_action(5) = -tmp_action(5);
-		//tmp_action(6) = -tmp_action(6);
-		//tmp_action(7) = -tmp_action(7);
-		//tmp_action(8) = -tmp_action(8);
-		//tmp_action(9) = -tmp_action(9);
-		//tmp_action(10) = -tmp_action(10);
-		//tmp_action(11) = -tmp_action(11);
 		tmp_action += dof_pos_default_robot;
 
 		std::cout<< "-------action---------"<<std::endl;
