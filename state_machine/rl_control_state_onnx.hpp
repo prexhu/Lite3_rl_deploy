@@ -67,7 +67,7 @@ private:
                 policy_cost_time_ = (end_timestamp.tv_sec-start_timestamp.tv_sec)*1e3 
                                     +(end_timestamp.tv_nsec-start_timestamp.tv_nsec)/1e6;
                 // std::cout << "cost_time:  " << policy_cost_time_ << " ms\n";
-                std::this_thread::sleep_untile(inference_start_time+std::chrono::milliseconds(inference_period));
+                std::this_thread::sleep_until(inference_start_time+std::chrono::milliseconds(inference_period));
             }
             // TODO: move to config file
         }
