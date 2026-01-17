@@ -182,7 +182,7 @@ public:
     void Run(){
         int cnt = 0;
         static double time_record = 0;
-        int state_machine_run_period =5; // 5ms for 200hz
+        int state_machine_run_period =2500; // 5us for 200hz
         auto state_machine_start_time = std::chrono::steady_clock::now();
         auto state_machine_end_time = state_machine_start_time;
 		bool enter_condition = false;
@@ -212,14 +212,14 @@ public:
 			if(enter_condition)
 			{
 				enter_condition = false; 
-				auto time_elapse=std::chrono::duration_cast<std::chrono::milliseconds>(state_machine_end_time-state_machine_start_time).count();
-            	std::this_thread::sleep_for(std::chrono::milliseconds(state_machine_run_period) - std::chrono::milliseconds(time_elapse)); // 5ms -> 200hz
+				auto time_elapse=std::chrono::duration_cast<std::chrono::microseconds>(state_machine_end_time-state_machine_start_time).count();
+            	std::this_thread::sleep_for(std::chrono::microseconds(state_machine_run_period) - std::chrono::microseconds(time_elapse)); // 5ms -> 200hz
 			}
 			else
 			{
-				std::this_thread::sleep_for(std::chrono::milliseconds(state_machine_run_period));
+				std::this_thread::sleep_for(std::chrono::microseconds(state_machine_run_period));
 			}
-			std::cout<<"State machine run time: "<< std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now()-state_machine_start_time).count() << " ms" << std::endl;
+//			std::cout<<"State machine run time: "<< std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-state_machine_start_time).count() << " us" << std::endl;
         }
 
         user_command_ptr_->Stop();

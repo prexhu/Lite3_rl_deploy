@@ -239,9 +239,6 @@ public:
 						joint_vel_rl,
 						last_action;
 		Clip(current_obs_, 100, -100);
-		//std::cout<<"###### current obs #######" <<std::endl;
-		//std::cout<< current_obs_<<std::endl;
-		//std::cout<<"##########################" <<std::endl;
 
 		// TODO: obs stack new -> old 
 		obs_history_.erase(obs_history_.begin()); // erase the old
@@ -262,12 +259,6 @@ public:
 				tmp_obs_history_( i * obs_dim_ + j) =temp_obs_history[i](j);
 			}
 		}
-		//std::cout<<"******* ewest obs in stack *******" <<std::endl;
-		//for(int i =0 ;i< obs_dim_;i++)
-		//{
-		//	std::cout<<tmp_obs_history_[i]<<std::endl;
-		//}
-		//std::cout<<"***********************************" <<std::endl;
 	   
 		std::array<int64_t, 2> input_shape{1, obs_history_dim_}; // change to 270 for himloco
 
@@ -288,9 +279,6 @@ public:
 		Eigen::Map<Eigen::MatrixXf> act(action_data, act_dim_, 1);
 		action = VecXf(act);
 		last_action = action;
-		//std::cout<< "-------action---------"<<std::endl;
-		//std::cout<<last_action<<std::endl;
-		//std::cout<< "----------------------"<<std::endl;
 		Clip(action, 100, -100);
 		for (int i = 0; i < act_dim_; ++i){
 			tmp_action(i) = action(policy2robot_idx[i]);
@@ -299,7 +287,6 @@ public:
 		
 		tmp_action += dof_pos_default_robot;
 
-		// Output desired joint pos
 		ra.goal_joint_pos = tmp_action;
 		ra.goal_joint_vel = VecXf::Zero(act_dim_);
 		ra.tau_ff = VecXf::Zero(act_dim_);

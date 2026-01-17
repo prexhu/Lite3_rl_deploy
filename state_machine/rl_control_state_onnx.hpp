@@ -52,7 +52,7 @@ private:
 
     void PolicyRunner(){
         int run_cnt_record = -1;
-        int inference_period=20; // 20ms for himloco
+        int inference_period=20000; // 20000us for himloco
 		auto inference_start_time = std::chrono::steady_clock::now();
 		auto inference_end_time = inference_start_time;
 		bool enter_condition = false;
@@ -75,13 +75,13 @@ private:
 			 if(enter_condition)
 			{
 				enter_condition = false;
-				auto time_elapse = std::chrono::duration_cast<std::chrono::milliseconds>(inference_end_time - inference_start_time).count();
-				std::this_thread::sleep_for(std::chrono::milliseconds(inference_period) - std::chrono::milliseconds(time_elapse)); // 20ms -> 50hz
+				auto time_elapse = std::chrono::duration_cast<std::chrono::microseconds>(inference_end_time - inference_start_time).count();
+				std::this_thread::sleep_for(std::chrono::microseconds(inference_period) - std::chrono::microseconds(time_elapse)); // 20ms -> 50hz
 			}
 			else{
-            std::this_thread::sleep_for(std::chrono::milliseconds(inference_period));
+            std::this_thread::sleep_for(std::chrono::microseconds(inference_period));
 			}
-			std::cout<<"Inference time: "<< std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now()-inference_start_time).count() << " ms" << std::endl;
+//			std::cout<<"Inference time: "<< std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-inference_start_time).count() << " us" << std::endl;
         }
 			
     }
