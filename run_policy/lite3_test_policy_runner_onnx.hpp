@@ -238,7 +238,11 @@ public:
 						joint_pos_rl,
 						joint_vel_rl,
 						last_action;
+<<<<<<< HEAD
 		Clip(currnet_obs_, 100, -100);
+=======
+		Clip(current_obs_, 100, -100);
+>>>>>>> 964f14f (add Clip method and apply to obs and action.)
 		//std::cout<<"###### current obs #######" <<std::endl;
 		//std::cout<< current_obs_<<std::endl;
 		//std::cout<<"##########################" <<std::endl;
