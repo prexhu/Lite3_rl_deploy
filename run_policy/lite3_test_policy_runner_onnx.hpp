@@ -238,6 +238,7 @@ public:
 						joint_pos_rl,
 						joint_vel_rl,
 						last_action;
+		Clip(currnet_obs_, 100, -100);
 		//std::cout<<"###### current obs #######" <<std::endl;
 		//std::cout<< current_obs_<<std::endl;
 		//std::cout<<"##########################" <<std::endl;
@@ -290,6 +291,7 @@ public:
 		//std::cout<< "-------action---------"<<std::endl;
 		//std::cout<<last_action<<std::endl;
 		//std::cout<< "----------------------"<<std::endl;
+		Clip(action, 100, -100);
 		for (int i = 0; i < act_dim_; ++i){
 			tmp_action(i) = action(policy2robot_idx[i]);
 			tmp_action(i) *= action_scale_robot[i];
@@ -319,6 +321,16 @@ public:
 //		
 //	}
 
+	void Clip(VecXf & raw_data, float clip_upper, float clip_lower)
+	{
+		for(int i =0;i<raw_data.size();i++)
+		{
+			if(raw_data(i) > clip_upper)
+				raw_data(i) = clip_upper;
+			else if(raw_data(i) < clip_lower)
+				raw_data(i) = clip_lower;
+		}	
+	}
 
 
 };
